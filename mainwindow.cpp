@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QPoint>
 #include <cmath>
+#include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -21,7 +22,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->action_bres, SIGNAL(triggered(bool)), this, SLOT(activate_algorithm()));
     connect(ui->action_circle, SIGNAL(triggered(bool)), this, SLOT(activate_algorithm()));
     connect(ui->action_step, SIGNAL(triggered(bool)), this, SLOT(activate_algorithm()));
-    //setFixedSize(800, 800); // размер окна
 }
 
 MainWindow::~MainWindow()
@@ -31,35 +31,30 @@ MainWindow::~MainWindow()
 
 void drawPolylineWithPoints(QPainter &painter, const QVector<QPoint> &points, int offsetX, int offsetY, int scale) {
     if (points.size() < 2) {
-        return; // Если точек меньше 2, рисовать ломаную не имеет смысла
+        return;
     }
-
-    // Настройка пера для рисования ломаной линии
     QPen pen;
     pen.setColor(Qt::blue);
     pen.setWidth(4);
     painter.setPen(pen);
 
-    // Рисуем ломаную линию, соединяя соседние точки
     for (int i = 0; i < points.size() - 1; ++i) {
-        // Преобразуем координаты точек, чтобы они учитывали сдвиг и масштаб
-        QPoint p1 = QPoint(points[i].x() * scale + offsetX, offsetY - points[i].y() * scale);  // Инвертируем координату Y
-        QPoint p2 = QPoint(points[i + 1].x() * scale + offsetX, offsetY - points[i + 1].y() * scale);  // Инвертируем координату Y
+        QPoint p1 = QPoint(points[i].x() * scale + offsetX, offsetY - points[i].y() * scale);
+        QPoint p2 = QPoint(points[i + 1].x() * scale + offsetX, offsetY - points[i + 1].y() * scale);
         painter.drawLine(p1, p2);
     }
 
-    // Настройка пера для рисования окружностей
     pen.setColor(Qt::red);
     pen.setWidth(3);
     painter.setPen(pen);
-    painter.setBrush(QBrush(Qt::red));  // Круги будут залиты красным цветом
+    painter.setBrush(QBrush(Qt::red));
 
-    // Рисуем круги в каждой точке
-    int circleRadius = 5; // Радиус окружности
+
+    int circleRadius = 5;
 
     for (const QPoint &point : points) {
-        // Преобразуем координаты точки с учетом смещения и масштаба
-        QPoint p = QPoint(point.x() * scale + offsetX, offsetY - point.y() * scale);  // Инвертируем координату Y
+
+        QPoint p = QPoint(point.x() * scale + offsetX, offsetY - point.y() * scale);
         painter.drawEllipse(p.x() - circleRadius, p.y() - circleRadius, 2 * circleRadius, 2 * circleRadius);
     }
 }
@@ -96,28 +91,24 @@ void getTwoPointsFromUser(QWidget *parent, QPoint &point1, QPoint &point2) {
 QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
     QVector<QPoint> points;
 
-    // Вычисляем разницу по осям
+
     int dx = p2.x() - p1.x();
     int dy = p2.y() - p1.y();
 
-    // Определяем направления движения по осям
+
     int stepX = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
     int stepY = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
 
-    // Абсолютные значения разностей по осям
     dx = std::abs(dx);
     dy = std::abs(dy);
 
-    // Начальная точка
     int x = p1.x();
     int y = p1.y();
 
-    // Добавляем первую точку в вектор
     points.append(QPoint(x, y));
 
-    // Решение, в какую сторону идти, на основании большей разницы по осям
     if (dx > dy) {
-        // Алгоритм по оси X
+
         int err = dx / 2;
         while (x != p2.x()) {
             err -= dy;
@@ -129,7 +120,6 @@ QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
             points.append(QPoint(x, y));
         }
     } else {
-        // Алгоритм по оси Y
         int err = dy / 2;
         while (y != p2.y()) {
             err -= dx;
@@ -145,10 +135,9 @@ QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
     return points;
 }
 
-QVector<QPoint> bresenhemRasterize(QPoint p1, QPoint p2) {
-    QVector<QPoint> points; // Вектор точек, по которым пройдет ломаная линия
+QVector<QPoint> bresenhamRasterize(QPoint p1, QPoint p2) {
+    QVector<QPoint> points;
 
-    // Вычисление разницы между точками
     int dx = std::abs(p2.x() - p1.x());
     int dy = std::abs(p2.y() - p1.y());
     int sx = (p1.x() < p2.x()) ? 1 : -1;
@@ -156,24 +145,19 @@ QVector<QPoint> bresenhemRasterize(QPoint p1, QPoint p2) {
     int err = dx - dy;
 
     while (true) {
-        points.append(p1); // Добавляем текущую точку в вектор
+        points.append(p1);
 
-        // Если достигли второй точки, завершаем цикл
         if (p1 == p2) break;
 
-        // Вычисляем ошибку
         int e2 = err * 2;
 
-        // Если ошибка больше чем ноль по оси X
         if (e2 > -dy) {
             err -= dy;
-            p1.setX(p1.x() + sx); // Двигаемся по оси X
+            p1.setX(p1.x() + sx);
         }
-
-        // Если ошибка меньше чем ноль по оси Y
         if (e2 < dx) {
             err += dx;
-            p1.setY(p1.y() + sy); // Двигаемся по оси Y
+            p1.setY(p1.y() + sy);
         }
     }
 
@@ -181,8 +165,7 @@ QVector<QPoint> bresenhemRasterize(QPoint p1, QPoint p2) {
 }
 
 QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
-    QVector<QPoint> points; // Вектор точек, представляющих растеризованный отрезок
-
+    QVector<QPoint> points;
     // Вычисляем разницу по осям
     int dx = p2.x() - p1.x();
     int dy = p2.y() - p1.y();
@@ -213,6 +196,43 @@ QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
     return points;
 }
 
+QVector<QPoint> bresenhamCircle(const QPoint& center, int radius) {
+    QVector<QPoint> points;
+    int x = radius;
+    int y = 0;
+    int radiusError = 1 - x;
+
+    while (x >= y) {
+
+        points.append(QPoint(center.x() + x, center.y() + y));
+        points.append(QPoint(center.x() + y, center.y() + x));
+        points.append(QPoint(center.x() - y, center.y() + x));
+        points.append(QPoint(center.x() - x, center.y() + y));
+        points.append(QPoint(center.x() - x, center.y() - y));
+        points.append(QPoint(center.x() - y, center.y() - x));
+        points.append(QPoint(center.x() + y, center.y() - x));
+        points.append(QPoint(center.x() + x, center.y() - y));
+        y++;
+
+        if (radiusError < 0) {
+            radiusError += 2 * y + 1;
+        } else {
+            x--;
+            radiusError += 2 * (y - x + 1);
+        }
+    }
+
+
+    std::sort(points.begin(), points.end(), [&center](const QPoint& a, const QPoint& b) {
+        double angleA = std::atan2(a.y() - center.y(), a.x() - center.x());
+        double angleB = std::atan2(b.y() - center.y(), b.x() - center.x());
+        return angleA < angleB;
+    });
+    points.push_back(points[0]);
+
+    return points;
+}
+
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
@@ -227,26 +247,23 @@ void MainWindow::paintEvent(QPaintEvent *event)
     painter.drawLine(width() / 2, 0, width() / 2, height());  // ось Y
     painter.drawLine(0, height() / 2, width(), height() / 2);  // ось X
 
-    // Рисуем дополнительный сеточный линии с шагом 50 пикселей
-    int step = 50;  // шаг сетки (масштаб)
+    int step = 50;
     int gridSizeX = this->size().width() / step + 1;
     int gridSizeY = this->size().height() / step + 1;
     QPen grid_pen;
-    grid_pen.setWidth(1);
+    grid_pen.setWidth(0);
     painter.setPen(grid_pen);
     for (int i = -gridSizeX; i <= gridSizeX; ++i) {
-        // Вертикальные линии сетки
         painter.drawLine(width() / 2 + i * step, 0, width() / 2 + i * step, height());
     }
     for (int i = -gridSizeY; i <= gridSizeY; ++i) {
-        // Горизонтальные линии сетки
         painter.drawLine(0, height() / 2 + i * step, width(), height() / 2 + i * step);
     }
 
     painter.setPen(pen);
     // Рисуем подписанные метки на осях
     QFont font = painter.font();
-    font.setPointSize(10);
+    font.setPointSize(step/5);
     painter.setFont(font);
 
     // Подписи на оси X
@@ -265,7 +282,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
     int offsetX = width() / 2;
     int offsetY = height() / 2;
-    int scale = 50;
+    int scale = step;
 
     drawPolylineWithPoints(painter, current_line, offsetX, offsetY, scale);
 }
@@ -273,16 +290,26 @@ void MainWindow::paintEvent(QPaintEvent *event)
 void MainWindow::activate_algorithm()
 {
     QPoint p1, p2;
-
-    getTwoPointsFromUser(this, p1, p2);
-    if(sender() == ui->action_step){
-        current_line = stepByStepRasterize(p1, p2);
+    if(sender() == ui->action_circle) {
+        p1 = getCoordinatesFromUser(this);
+        bool ok;
+        int x = QInputDialog::getInt(this, "Ввод радиуса", "Введите радиус:", 0, -10000, 10000, 1, &ok);
+        if (!ok) {
+            QMessageBox::warning(this, "Ошибка", "Не удалось получить радиус.");
+        }
+        current_line = bresenhamCircle(p1, x);
     }
-    if(sender() == ui->action_bres){
-        current_line = bresenhemRasterize(p1, p2);
-    }
-    if(sender() == ui->actionDDA){
-        current_line = ddaRasterize(p1, p2);
+    else {
+        getTwoPointsFromUser(this, p1, p2);
+        if(sender() == ui->action_step){
+            current_line = stepByStepRasterize(p1, p2);
+        }
+        if(sender() == ui->action_bres){
+            current_line = bresenhamRasterize(p1, p2);
+        }
+        if(sender() == ui->actionDDA){
+            current_line = ddaRasterize(p1, p2);
+        }
     }
     update();
 }
