@@ -166,30 +166,20 @@ QVector<QPoint> bresenhamRasterize(QPoint p1, QPoint p2) {
 
 QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
     QVector<QPoint> points;
-    // Вычисляем разницу по осям
     int dx = p2.x() - p1.x();
     int dy = p2.y() - p1.y();
 
-    // Количество шагов (количество точек для растеризации)
     int steps = std::max(std::abs(dx), std::abs(dy));
 
-    // Вычисляем шаги для осей X и Y
     float stepX = dx / static_cast<float>(steps);
     float stepY = dy / static_cast<float>(steps);
 
-    // Начальная точка
     float x = p1.x();
     float y = p1.y();
-
-    // Добавляем первую точку в вектор
     points.append(QPoint(std::round(x), std::round(y)));
-
-    // Растеризуем отрезок
     for (int i = 1; i <= steps; ++i) {
-        x += stepX; // Двигаемся по оси X
-        y += stepY; // Двигаемся по оси Y
-
-        // Добавляем округленные координаты в вектор
+        x += stepX;
+        y += stepY;
         points.append(QPoint(std::round(x), std::round(y)));
     }
 
@@ -198,12 +188,10 @@ QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
 
 QVector<QPoint> bresenhamCircle(const QPoint& center, int radius) {
     QVector<QPoint> points;
-    int x = radius;
-    int y = 0;
-    int radiusError = 1 - x;
-
-    while (x >= y) {
-
+    int x = 0;
+    int y = radius;
+    int delta = 2 - 2 * radius;
+    while (y >= 0) {
         points.append(QPoint(center.x() + x, center.y() + y));
         points.append(QPoint(center.x() + y, center.y() + x));
         points.append(QPoint(center.x() - y, center.y() + x));
@@ -212,42 +200,50 @@ QVector<QPoint> bresenhamCircle(const QPoint& center, int radius) {
         points.append(QPoint(center.x() - y, center.y() - x));
         points.append(QPoint(center.x() + y, center.y() - x));
         points.append(QPoint(center.x() + x, center.y() - y));
-        y++;
 
-        if (radiusError < 0) {
-            radiusError += 2 * y + 1;
-        } else {
-            x--;
-            radiusError += 2 * (y - x + 1);
+        int delta_minus = 2 * delta + 2  * y - 1;
+        int delta_plus = 2 * delta - 2 * x - 1;
+        if(delta < 0 && delta_minus <= 0) {
+            x++;
+            delta = delta + 2 * x + 1;
         }
-    }
+        else if(delta > 0 && delta_plus > 0) {
+            y--;
+            delta = delta - 2 * y + 1;
+        }
+        else {
+            x++;
+            y--;
+            delta = delta + 2*(x - y) + 2;
+        }
 
+    }
 
     std::sort(points.begin(), points.end(), [&center](const QPoint& a, const QPoint& b) {
         double angleA = std::atan2(a.y() - center.y(), a.x() - center.x());
         double angleB = std::atan2(b.y() - center.y(), b.x() - center.x());
         return angleA < angleB;
     });
-    points.push_back(points[0]);
 
+
+    points.push_back(points[0]);
     return points;
 }
+
 
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
 
-    // Настройка пера для рисования линий
     QPen pen;
     pen.setColor(Qt::black);
     pen.setWidth(3);
     painter.setPen(pen);
 
-    // Оси X и Y
     painter.drawLine(width() / 2, 0, width() / 2, height());  // ось Y
     painter.drawLine(0, height() / 2, width(), height() / 2);  // ось X
 
-    int step = 50;
+    int step = 25;
     int gridSizeX = this->size().width() / step + 1;
     int gridSizeY = this->size().height() / step + 1;
     QPen grid_pen;
@@ -261,19 +257,16 @@ void MainWindow::paintEvent(QPaintEvent *event)
     }
 
     painter.setPen(pen);
-    // Рисуем подписанные метки на осях
     QFont font = painter.font();
     font.setPointSize(step/5);
     painter.setFont(font);
 
-    // Подписи на оси X
     for (int i = -gridSizeX; i <= gridSizeX; ++i) {
         if (i != 0) {
             painter.drawText(width() / 2 + i * step - 10, height() / 2 + 20, QString::number(i));
         }
     }
 
-    // Подписи на оси Y
     for (int i = -gridSizeY; i <= gridSizeY; ++i) {
         if (i != 0) {
             painter.drawText(width() / 2 + 20, height() / 2 - i * step + 5, QString::number(i));
@@ -313,6 +306,3 @@ void MainWindow::activate_algorithm()
     }
     update();
 }
-
-
-
