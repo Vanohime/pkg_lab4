@@ -90,9 +90,21 @@ void getTwoPointsFromUser(QWidget *parent, QPoint &point1, QPoint &point2) {
 
 QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
     QVector<QPoint> points;
+    int x1 = p1.x(), x2 = p2.x(), y1 = p1.y(), y2 = p2.y();
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    int steps = std::max(abs(dx), abs(dy));
+    float xInc = dx / (float)steps;
+    float yInc = dy / (float)steps;
+    float x = x1;
+    float y = y1;
+    for (int i = 0; i <= steps; ++i) {
+        points.push_back(QPoint(round(x),round(y)));
+        x += xInc;
+        y += yInc;
+    }
 
-
-    int dx = p2.x() - p1.x();
+    /*int dx = p2.x() - p1.x();
     int dy = p2.y() - p1.y();
 
 
@@ -130,7 +142,7 @@ QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
             y += stepY;
             points.append(QPoint(x, y));
         }
-    }
+    }*/
 
     return points;
 }
