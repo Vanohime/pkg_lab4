@@ -62,113 +62,33 @@ void drawPolylineWithPoints(QPainter &painter, const QVector<QPoint> &points, in
 QPoint getCoordinatesFromUser(QWidget *parent) {
     bool ok;
     int x = QInputDialog::getInt(parent, "Ввод координаты X", "Введите координату X:", 0, -10000, 10000, 1, &ok);
-    if (!ok) {
-        QMessageBox::warning(parent, "Ошибка", "Не удалось получить координату X.");
-        return QPoint(0, 0);
-    }
 
     int y = QInputDialog::getInt(parent, "Ввод координаты Y", "Введите координату Y:", 0, -10000, 10000, 1, &ok);
-    if (!ok) {
-        QMessageBox::warning(parent, "Ошибка", "Не удалось получить координату Y.");
-        return QPoint(0, 0);
-    }
 
     return QPoint(x, y);
 }
 
 void getTwoPointsFromUser(QWidget *parent, QPoint &point1, QPoint &point2) {
     point1 = getCoordinatesFromUser(parent);
-    if (point1 == QPoint(0, 0)) {
-        return;
-    }
 
     point2 = getCoordinatesFromUser(parent);
-    if (point2 == QPoint(0, 0)) {
-        return;
-    }
+
 }
 
 QVector<QPoint> stepByStepRasterize(QPoint p1, QPoint p2) {
-    QVector<QPoint> points;
-    int x1 = p1.x(), x2 = p2.x(), y1 = p1.y(), y2 = p2.y();
-    int dx = x2 - x1;
-    int dy = y2 - y1;
-    int steps = std::max(abs(dx), abs(dy));
-    float xInc = dx / (float)steps;
-    float yInc = dy / (float)steps;
-    float x = x1;
-    float y = y1;
-    for (int i = 0; i <= steps; ++i) {
-        points.push_back(QPoint(round(x),round(y)));
-        x += xInc;
-        y += yInc;
-    }
-
-    /*int dx = p2.x() - p1.x();
-    int dy = p2.y() - p1.y();
-
-
-    int stepX = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
-    int stepY = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
-
-    dx = std::abs(dx);
-    dy = std::abs(dy);
-
-    int x = p1.x();
-    int y = p1.y();
-
-    points.append(QPoint(x, y));
-
-    if (dx > dy) {
-
-        int err = dx / 2;
-        while (x != p2.x()) {
-            err -= dy;
-            if (err < 0) {
-                y += stepY;
-                err += dx;
-            }
-            x += stepX;
-            points.append(QPoint(x, y));
-        }
-    } else {
-        int err = dy / 2;
-        while (y != p2.y()) {
-            err -= dx;
-            if (err < 0) {
-                x += stepX;
-                err += dy;
-            }
-            y += stepY;
-            points.append(QPoint(x, y));
-        }
-    }*/
-
-    return points;
-}
-
-QVector<QPoint> bresenhamRasterize(QPoint p1, QPoint p2) {
     QVector<QPoint> points;
 
     int dx = std::abs(p2.x() - p1.x());
     int dy = std::abs(p2.y() - p1.y());
     int sx = (p1.x() < p2.x()) ? 1 : -1;
     int sy = (p1.y() < p2.y()) ? 1 : -1;
-    int err = dx - dy;
-
     while (true) {
         points.append(p1);
-
-        if (p1 == p2) break;
-
-        int e2 = err * 2;
-
-        if (e2 > -dy) {
-            err -= dy;
+        if (p1 == p2)
+            break;
+        if(p1.x() != p2.x())
             p1.setX(p1.x() + sx);
-        }
-        if (e2 < dx) {
-            err += dx;
+        if (p1.y() != p2.y()) {
             p1.setY(p1.y() + sy);
         }
     }
@@ -176,25 +96,62 @@ QVector<QPoint> bresenhamRasterize(QPoint p1, QPoint p2) {
     return points;
 }
 
-QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
+QVector<QPoint> bresenhamRasterize(QPoint p1, QPoint p2){
+    int x0 = p1.x();
+    int y0 = p1.y();
+    int x1 = p2.x();
+    int y1 = p2.y();
     QVector<QPoint> points;
-    int dx = p2.x() - p1.x();
-    int dy = p2.y() - p1.y();
+    int deltax = qAbs(x1 - x0);
+    int deltay = qAbs(y1 - y0);
+    int error = 0;
+    int deltaerr = deltay + 1;
+    int x = x0;
+    int y = y0;
+    int dirx = x0 < x1 ? 1 : -1;
+    int diry = (y1 - y0) > 0 ? 1 : (y1 - y0) < 0 ? -1 : 0;
 
-    int steps = std::max(std::abs(dx), std::abs(dy));
-
-    float stepX = dx / static_cast<float>(steps);
-    float stepY = dy / static_cast<float>(steps);
-
-    float x = p1.x();
-    float y = p1.y();
-    points.append(QPoint(std::round(x), std::round(y)));
-    for (int i = 1; i <= steps; ++i) {
-        x += stepX;
-        y += stepY;
-        points.append(QPoint(std::round(x), std::round(y)));
+    if (deltax >= deltay) {
+        deltaerr = deltay+ 1;
+        for (x = x0; x != x1 + dirx; x += dirx) {
+            points.append(QPoint(x, y));
+            error += deltaerr;
+            if (error >= deltax + 1) {
+                y += diry;
+                error -= deltax + 1;
+            }
+        }
+    } else {
+        deltaerr = deltax +  1;
+        for (y = y0; y != y1 + diry; y += diry) {
+            points.append(QPoint(x, y));
+            error += deltaerr;
+            if (error >= deltay + 1 ) {
+                x += dirx;
+                error -= deltay + 1;
+            }
+        }
     }
 
+    return points;
+}
+QVector<QPoint> ddaRasterize(QPoint p1, QPoint p2) {
+    QVector<QPoint> points;
+    int x1 = p1.x(), x2 = p2.x(), y1 = p1.y(), y2 = p2.y();
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    int steps = std::max(std::abs(dx), std::abs(dy));
+
+    double xInc = dx / (double)steps;
+    double yInc = dy / (double)steps;
+    double x = x1;
+    double y = y1;
+
+    for (int i = 0; i <= steps; ++i) {
+        points.push_back(QPoint(std::round(x), std::round(y)));
+        x += xInc;
+        y += yInc;
+    }
     return points;
 }
 
@@ -242,7 +199,6 @@ QVector<QPoint> bresenhamCircle(const QPoint& center, int radius) {
     return points;
 }
 
-
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
@@ -255,7 +211,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
     painter.drawLine(width() / 2, 0, width() / 2, height());  // ось Y
     painter.drawLine(0, height() / 2, width(), height() / 2);  // ось X
 
-    int step = 25;
+    int step = 30;
     int gridSizeX = this->size().width() / step + 1;
     int gridSizeY = this->size().height() / step + 1;
     QPen grid_pen;
@@ -299,9 +255,6 @@ void MainWindow::activate_algorithm()
         p1 = getCoordinatesFromUser(this);
         bool ok;
         int x = QInputDialog::getInt(this, "Ввод радиуса", "Введите радиус:", 0, -10000, 10000, 1, &ok);
-        if (!ok) {
-            QMessageBox::warning(this, "Ошибка", "Не удалось получить радиус.");
-        }
         current_line = bresenhamCircle(p1, x);
     }
     else {
